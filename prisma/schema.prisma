@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrgType {
+  STARTUP
+  AGENCY
+  ENTERPRISE
+  INDIE
+}
+
+enum Entity {
+  US
+  EU
+}
+
+enum Plan {
+  SELF_SERVE
+  ENTERPRISE
+}
+
+enum Operation {
+  GENERATION
+  EDITING
+}
+
+enum Region {
+  US
+  EU
+}
+
+enum CallStatus {
+  SUCCESS
+  ERROR
+  RATE_LIMITED
+}
+
+enum Currency {
+  USD
+  EUR
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+}
+
+model Organization {
+  id            String           @id @default(cuid())
+  name          String
+  type          OrgType
+  entity        Entity
+  creditBalance Float            @default(0)
+  plan          Plan
+  createdAt     DateTime         @default(now())
+  projects      Project[]
+  apiCalls      ApiCall[]
+  purchases     CreditPurchase[]
+  invoices      Invoice[]
+}
+
+model Project {
+  id           String       @id @default(cuid())
+  orgId        String
+  name         String
+  apiKeyPrefix String
+  createdAt    DateTime     @default(now())
+  org          Organization @relation(fields: [orgId], references: [id])
+  apiCalls     ApiCall[]
+
+  @@index([orgId])
+}
+
+model ApiCall {
+  id             String     @id @default(cuid())
+  orgId          String
+  projectId      String
+  timestamp      DateTime
+  model          String
+  operation      Operation
+  region         Region
+  status         CallStatus
+  megapixels     Float?
+  batchSize      Int        @default(1)
+  creditsCharged Float      @default(0)
+  costUsd        Float      @default(0)
+  latencyMs      Int
+  org            Organization @relation(fields: [orgId], references: [id])
+  project        Project      @relation(fields: [projectId], references: [id])
+
+  @@index([orgId, timestamp])
+  @@index([model])
+  @@index([status])
+  @@index([timestamp])
+}
+
+model CreditPurchase {
+  id              String       @id @default(cuid())
+  orgId           String
+  timestamp       DateTime
+  credits         Int
+  amountUsd       Float
+  currency        Currency
+  stripeInvoiceId String
+  entity          Entity
+  org             Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
+}
+
+model Invoice {
+  id               String        @id @default(cuid())
+  orgId            String
+  periodStart      DateTime
+  periodEnd        DateTime
+  totalCreditsUsed Float
+  totalUsd         Float
+  vatAmount        Float         @default(0)
+  vatRate          Float         @default(0)
+  entity           Entity
+  status           InvoiceStatus
+  org              Organization  @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
+  @@index([status])
+}
